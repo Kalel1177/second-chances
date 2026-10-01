@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Second Chances | Preowned Items for Sale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#faf6ef;--card:#fff;--ink:#1f2a2e;--mute:#6b767a;--line:#e8e1d4;--brand:#0f6b63;--brand2:#0a4f49;--pop:#e8664a;--r:16px;--sh:0 6px 24px rgba(31,42,46,.08)}
+@media(prefers-color-scheme:dark){:root{--bg:#141a1c;--card:#1d2528;--ink:#eef2f1;--mute:#93a0a4;--line:#2b3639;--brand:#2bb3a5;--brand2:#3cc9ba;--sh:0 6px 24px rgba(0,0,0,.35)}}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;margin:0}
+header{background:linear-gradient(135deg,#0a4f49,#0f6b63 60%,#1a8f83);color:#fff;padding:56px 20px 72px;text-align:center}
+header h1{font-size:clamp(2.2rem,6vw,3.6rem);letter-spacing:-.5px}
+header p{max-width:560px;margin:10px auto 0;opacity:.9}
+.top{position:absolute;top:14px;right:16px}
+.top button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:7px 14px;border-radius:99px;cursor:pointer;font:inherit;font-size:.85rem}
+main{max-width:1150px;margin:-36px auto 0;padding:0 16px 60px;position:relative}
+.bar{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px;display:flex;gap:10px;flex-wrap:wrap}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);border-color:transparent}
+.bar input{flex:1 1 220px;width:auto}.bar select{width:auto;flex:0 0 auto}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:16px 2px 6px}
+.chip{white-space:nowrap;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 14px;border-radius:99px;cursor:pointer;font:inherit;font-size:.88rem}
+.chip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;margin-top:14px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column;transition:transform .2s}
+.card:hover{transform:translateY(-4px)}
+.img{height:190px;background:linear-gradient(135deg,#d9efe9,#f6e3d6);display:grid;place-items:center;font-size:4rem;position:relative}
+.img img{width:100%;height:100%;object-fit:cover}
+.tag{position:absolute;top:10px;left:10px;background:rgba(255,255,255,.92);color:#1f2a2e;font-size:.72rem;font-weight:600;padding:3px 10px;border-radius:99px}
+.sold{position:absolute;inset:0;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;font-weight:600;font-size:1.1rem}
+.body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+.body h3{font-size:1.1rem}
+.cat{font-size:.75rem;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.desc{font-size:.9rem;color:var(--mute);flex:1}
+.row{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.price{font-family:Fraunces,serif;font-size:1.35rem;color:var(--brand)}
+.qty{font-size:.8rem;color:var(--mute)}
+.btn{background:var(--brand);color:#fff;border:0;padding:10px 16px;border-radius:10px;cursor:pointer;font:inherit;font-weight:600}
+.btn:hover{background:var(--brand2)}.btn.alt{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn.pop{background:var(--pop)}.btn.sm{padding:6px 10px;font-size:.8rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.empty{text-align:center;color:var(--mute);padding:60px 0;grid-column:1/-1}
+.admin{background:var(--card);border:2px dashed var(--brand);border-radius:var(--r);padding:16px;margin-top:18px;display:none}
+.admin.on{display:block}
+.admin h2{font-size:1.2rem;margin-bottom:10px}
+.tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.f label{font-size:.8rem;color:var(--mute);display:block;margin-bottom:3px}
+.full{grid-column:1/-1}
+.acts{display:flex;gap:6px;margin-top:8px}
+footer{background:var(--brand2);color:#fff;padding:32px 20px;text-align:center}
+footer a{color:#fff}
+dialog{border:0;border-radius:var(--r);padding:22px;max-width:420px;width:92%;background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h2{margin-bottom:8px}
+.g{display:grid;gap:10px;margin-top:10px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none}
+.toast.on{opacity:1}
+.note{font-size:.8rem;color:var(--mute);margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><button id="adminBtn">Admin</button></div>
+  <h1>Second Chances</h1>
+  <p>Quality preowned gadgets, appliances, toys, baby items, clothes and more. Give great things a new home.</p>
+</header>
+ 
+<main>
+  <div class="bar">
+    <input id="q" type="search" placeholder="Search items...">
+    <select id="sort">
+      <option value="new">Newest</option><option value="lo">Price: low to high</option><option value="hi">Price: high to low</option>
+    </select>
+  </div>
+  <div class="chips" id="chips"></div>
+ 
+  <section class="admin" id="admin">
+    <h2>Admin panel</h2>
+    <div class="tabs">
+      <button class="btn sm" data-t="item">Add / edit item</button>
+      <button class="btn sm alt" data-t="contact">Contact details</button>
+      <button class="btn sm alt" id="logout">Log out</button>
+    </div>
+    <div id="tItem">
+      <div class="f">
+        <div class="full"><label>Item name</label><input id="iName" placeholder="e.g. Samsung 43&quot; Smart TV"></div>
+        <div><label>Category</label><select id="iCat"></select></div>
+        <div><label>Condition</label><select id="iCond"><option>Like new</option><option>Good</option><option>Fair</option></select></div>
+        <div><label>Quantity</label><input id="iQty" type="number" min="0" value="1"></div>
+        <div><label>Price (R)</label><input id="iPrice" type="number" min="0" step="0.01"></div>
+        <div class="full"><label>Description</label><textarea id="iDesc" rows="3" placeholder="Brand, size, age, what is included, any flaws..."></textarea></div>
+        <div class="full"><label>Photo (optional)</label><input id="iImg" type="file" accept="image/*"></div>
+      </div>
+      <div class="acts"><button class="btn" id="saveItem">Save item</button><button class="btn alt" id="clearItem">Clear</button></div>
+    </div>
+    <div id="tContact" hidden>
+      <div class="f">
+        <div><label>Contact person</label><input id="cName"></div>
+        <div><label>Phone number</label><input id="cPhone" type="tel"></div>
+        <div><label>WhatsApp (with country code, e.g. 27821234567)</label><input id="cWa"></div>
+        <div><label>Email address</label><input id="cEmail" type="email"></div>
+        <div class="full"><label>Note to buyers</label><input id="cNote" placeholder="e.g. Collection in Cape Town. Payment by EFT or cash."></div>
+      </div>
+      <div class="acts"><button class="btn" id="saveContact">Save contact details</button></div>
+    </div>
+    <p class="note" id="mode"></p>
+  </section>
+ 
+  <div class="grid" id="grid"></div>
+</main>
+ 
+<footer>
+  <h2>Ready to order?</h2>
+  <p id="foot">Contact details coming soon.</p>
+  <p style="opacity:.7;font-size:.8rem">&copy; <span id="yr"></span> Second Chances. All items are preowned and sold as described.</p>
+</footer>
+ 
+<dialog id="ordDlg">
+  <h2 id="oTitle"></h2>
+  <p id="oInfo" class="note"></p>
+  <div class="g">
+    <div><label class="note">Quantity</label><input id="oQty" type="number" min="1" value="1"></div>
+    <input id="oName" placeholder="Your name">
+    <input id="oPhone" placeholder="Your phone number">
+    <button class="btn" id="oMail">Order by email</button>
+    <button class="btn pop" id="oWa">Order by WhatsApp</button>
+    <button class="btn alt" id="oClose">Cancel</button>
+  </div>
+</dialog>
+ 
+<dialog id="loginDlg">
+  <h2>Admin login</h2>
+  <div class="g">
+    <input id="lEmail" type="email" placeholder="Email" autocomplete="username">
+    <input id="lPass" type="password" placeholder="Password or PIN" autocomplete="current-password">
+    <button class="btn" id="lGo">Log in</button>
+    <button class="btn alt" id="lClose">Cancel</button>
+  </div>
+</dialog>
+ 
+<div class="toast" id="toast"></div>
+ 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+/* ========= SETTINGS ========= */
+const CFG = {
+  SUPABASE_URL:"https://dmlebylgswtcsfsokxzz.supabase.co",       // paste your Supabase project URL
+  SUPABASE_ANON_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbGVieWxnc3d0Y3Nmc29reHp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMzM1NTYsImV4cCI6MjA5NzgwOTU1Nn0.BrYS9PxevMcr4bPgd2RJZviBDeusX6_A77lApYK6Iw4",  // paste your Supabase anon (public) key
+  LOCAL_PIN: "1234",      // admin PIN used ONLY in local demo mode (no Supabase)
+  CURRENCY: "R"
+};
+const CATS = {"Gadgets & Devices":"📱","TVs":"📺","Radios & Audio":"📻","Toys":"🧸","Baby Accessories":"🍼","Clothes":"👕","Household Items":"🛋️","Kitchen Appliances":"🍳","Other":"📦"};
+/* ============================ */
+ 
+const $ = id => document.getElementById(id);
+const sb = (CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && window.supabase) ? supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY) : null;
+let items = [], contact = {}, cat = "All", editId = null, imgData = null, isAdmin = false, orderItem = null;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => CFG.CURRENCY + Number(n).toLocaleString("en-ZA", {minimumFractionDigits:2, maximumFractionDigits:2});
+const toast = m => { const t=$("toast"); t.textContent=m; t.classList.add("on"); setTimeout(()=>t.classList.remove("on"),2500); };
+ 
+/* ---- data layer: Supabase if configured, otherwise localStorage ---- */
+const LS = (k,v) => v===undefined ? JSON.parse(localStorage.getItem(k)||"null") : localStorage.setItem(k, JSON.stringify(v));
+async function load(){
+  if(sb){
+    const a = await sb.from("items").select("*").order("created_at",{ascending:false});
+    const b = await sb.from("settings").select("*").eq("id",1).maybeSingle();
+    if(a.error) toast("Could not load items: "+a.error.message);
+    items = a.data || []; contact = b.data || {};
+    const s = await sb.auth.getSession(); if(s.data.session) setAdmin(true);
+  } else {
+    items = LS("sc_items") || [
+      {id:"1",name:"Samsung 43\" Smart TV",category:"TVs",condition:"Good",description:"Full HD, remote and wall bracket included. Works perfectly.",qty:1,price:3200},
+      {id:"2",name:"Kenwood Toaster (4 slice)",category:"Kitchen Appliances",condition:"Like new",description:"Used a handful of times. Stainless steel finish.",qty:2,price:250},
+      {id:"3",name:"Baby Cot with Mattress",category:"Baby Accessories",condition:"Good",description:"Sturdy wooden cot, adjustable height, clean mattress.",qty:1,price:900}
+    ];
+    contact = LS("sc_contact") || {};
+  }
+  render(); fillContact();
+}
+async function saveItemDB(it){
+  if(sb){
+    const row = {name:it.name,category:it.category,condition:it.condition,description:it.description,qty:it.qty,price:it.price,image:it.image||null};
+    const r = it.id ? await sb.from("items").update(row).eq("id",it.id) : await sb.from("items").insert(row);
+    if(r.error) return toast("Error: "+r.error.message);
+    return load();
+  }
+  if(it.id) items = items.map(x=>x.id===it.id?it:x); else { it.id = String(Date.now()); items.unshift(it); }
+  LS("sc_items", items); render();
+}
+async function deleteItemDB(id){
+  if(sb){ const r = await sb.from("items").delete().eq("id",id); if(r.error) return toast(r.error.message); return load(); }
+  items = items.filter(x=>x.id!==id); LS("sc_items", items); render();
+}
+async function saveContactDB(c){
+  contact = c;
+  if(sb){ const r = await sb.from("settings").upsert({id:1,...c}); if(r.error) return toast(r.error.message); }
+  else LS("sc_contact", c);
+  fillContact(); toast("Contact details saved");
+}
+ 
+/* ---- rendering ---- */
+function render(){
+  const chips = ["All",...Object.keys(CATS)];
+  $("chips").innerHTML = chips.map(c=>`<button class="chip ${c===cat?"on":""}" data-c="${esc(c)}">${c==="All"?"✨ All":CATS[c]+" "+esc(c)}</button>`).join("");
+  const q = $("q").value.trim().toLowerCase(), s = $("sort").value;
+  let list = items.filter(i=>(cat==="All"||i.category===cat) && (i.name+" "+(i.description||"")+" "+i.category).toLowerCase().includes(q));
+  if(s==="lo") list.sort((a,b)=>a.price-b.price); else if(s==="hi") list.sort((a,b)=>b.price-a.price);
+  $("grid").innerHTML = list.length ? list.map(i=>`
+    <article class="card">
+      <div class="img">${i.image?`<img src="${esc(i.image)}" alt="${esc(i.name)}" loading="lazy">`:(CATS[i.category]||"📦")}
+        <span class="tag">${esc(i.condition||"")}</span>${i.qty<1?'<div class="sold">Sold out</div>':""}</div>
+      <div class="body">
+        <span class="cat">${esc(i.category)}</span>
+        <h3>${esc(i.name)}</h3>
+        <p class="desc">${esc(i.description)}</p>
+        <div class="row"><div><div class="price">${money(i.price)}</div><div class="qty">${i.qty} available</div></div>
+          <button class="btn" data-o="${esc(i.id)}" ${i.qty<1?"disabled":""}>Order</button></div>
+        ${isAdmin?`<div class="acts"><button class="btn alt sm" data-e="${esc(i.id)}">Edit</button><button class="btn alt sm" data-d="${esc(i.id)}">Delete</button></div>`:""}
+      </div>
+    </article>`).join("") : `<div class="empty"><h3>Nothing found</h3><p>Try another search or category.</p></div>`;
+}
+function fillContact(){
+  $("cName").value=contact.name||""; $("cPhone").value=contact.phone||""; $("cWa").value=contact.whatsapp||"";
+  $("cEmail").value=contact.email||""; $("cNote").value=contact.note||"";
+  const p=[];
+  if(contact.name) p.push(esc(contact.name));
+  if(contact.phone) p.push(`📞 <a href="tel:${esc(contact.phone)}">${esc(contact.phone)}</a>`);
+  if(contact.email) p.push(`✉️ <a href="mailto:${esc(contact.email)}">${esc(contact.email)}</a>`);
+  $("foot").innerHTML = (p.join(" &nbsp;|&nbsp; ") || "Contact details coming soon.") + (contact.note?`<br><small>${esc(contact.note)}</small>`:"");
+}
+ 
+/* ---- events ---- */
+$("chips").onclick = e => { const c=e.target.dataset.c; if(c){cat=c;render();} };
+$("q").oninput = render; $("sort").onchange = render;
+$("grid").onclick = e => {
+  const t=e.target, find=id=>items.find(x=>x.id===id);
+  if(t.dataset.o){ orderItem=find(t.dataset.o); $("oTitle").textContent=orderItem.name; $("oInfo").textContent=money(orderItem.price)+" each · "+orderItem.qty+" available"; $("oQty").max=orderItem.qty; $("oQty").value=1; $("ordDlg").showModal(); }
+  if(t.dataset.e){ const i=find(t.dataset.e); editId=i.id; imgData=i.image||null; $("iName").value=i.name; $("iCat").value=i.category; $("iCond").value=i.condition; $("iQty").value=i.qty; $("iPrice").value=i.price; $("iDesc").value=i.description; showTab("item"); $("admin").scrollIntoView({behavior:"smooth"}); }
+  if(t.dataset.d && confirm("Delete this item?")) deleteItemDB(t.dataset.d);
+};
+function orderText(){
+  const n=Math.max(1,Math.min(+$("oQty").value||1,orderItem.qty));
+  return `Hi, I would like to order from Second Chances:\n\nItem: ${orderItem.name}\nQuantity: ${n}\nTotal: ${money(n*orderItem.price)}\n\nName: ${$("oName").value}\nPhone: ${$("oPhone").value}`;
+}
+$("oMail").onclick = () => {
+  if(!contact.email) return toast("No email set yet");
+  location.href = `mailto:${contact.email}?subject=${encodeURIComponent("Order: "+orderItem.name)}&body=${encodeURIComponent(orderText())}`;
+};
+$("oWa").onclick = () => {
+  const n=(contact.whatsapp||contact.phone||"").replace(/\D/g,"");
+  if(!n) return toast("No WhatsApp number set yet");
+  window.open(`https://wa.me/${n}?text=${encodeURIComponent(orderText())}`,"_blank");
+};
+$("oClose").onclick = () => $("ordDlg").close();
+ 
+/* admin */
+$("iCat").innerHTML = Object.keys(CATS).map(c=>`<option>${c}</option>`).join("");
+function setAdmin(v){ isAdmin=v; $("admin").classList.toggle("on",v); $("adminBtn").textContent=v?"Admin ✓":"Admin"; $("mode").textContent=sb?"Connected to Supabase: changes are saved online.":"Local demo mode: changes are saved only in this browser. Add your Supabase keys to go live."; render(); }
+$("adminBtn").onclick = () => isAdmin ? $("admin").scrollIntoView({behavior:"smooth"}) : $("loginDlg").showModal();
+$("lClose").onclick = () => $("loginDlg").close();
+$("lGo").onclick = async () => {
+  if(sb){ const r=await sb.auth.signInWithPassword({email:$("lEmail").value,password:$("lPass").value}); if(r.error) return toast(r.error.message); }
+  else if($("lPass").value!==CFG.LOCAL_PIN) return toast("Wrong PIN");
+  $("loginDlg").close(); $("lPass").value=""; setAdmin(true);
+};
+$("logout").onclick = async () => { if(sb) await sb.auth.signOut(); setAdmin(false); };
+function showTab(t){ $("tItem").hidden=t!=="item"; $("tContact").hidden=t!=="contact"; }
+document.querySelectorAll(".tabs [data-t]").forEach(b=>b.onclick=()=>showTab(b.dataset.t));
+function clearForm(){ editId=null; imgData=null; ["iName","iDesc","iPrice","iImg"].forEach(i=>$(i).value=""); $("iQty").value=1; }
+$("clearItem").onclick = clearForm;
+$("iImg").onchange = e => {
+  const f=e.target.files[0]; if(!f) return;
+  const img=new Image(); img.onload=()=>{ const s=Math.min(1,700/Math.max(img.width,img.height)), c=document.createElement("canvas"); c.width=img.width*s; c.height=img.height*s; c.getContext("2d").drawImage(img,0,0,c.width,c.height); imgData=c.toDataURL("image/jpeg",.75); };
+  img.src=URL.createObjectURL(f);
+};
+$("saveItem").onclick = async () => {
+  const name=$("iName").value.trim(), price=parseFloat($("iPrice").value);
+  if(!name || isNaN(price)) return toast("Please enter a name and price");
+  await saveItemDB({id:editId,name,category:$("iCat").value,condition:$("iCond").value,description:$("iDesc").value.trim(),qty:Math.max(0,parseInt($("iQty").value)||0),price,image:imgData});
+  clearForm(); toast("Item saved");
+};
+$("saveContact").onclick = () => saveContactDB({name:$("cName").value.trim(),phone:$("cPhone").value.trim(),whatsapp:$("cWa").value.trim(),email:$("cEmail").value.trim(),note:$("cNote").value.trim()});
+ 
+$("yr").textContent = new Date().getFullYear();
+$("mode").textContent = "";
+load();
+</script>
+</body>
+</html>
+ 
