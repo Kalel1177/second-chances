@@ -1,0 +1,16 @@
+create table items (
+  id uuid primary key default gen_random_uuid(),
+  name text not null, category text, condition text,
+  description text, qty int default 1, price numeric not null,
+  image text, created_at timestamptz default now()
+);
+create table settings (
+  id int primary key, name text, phone text,
+  whatsapp text, email text, note text
+);
+alter table items enable row level security;
+alter table settings enable row level security;
+create policy "public read items" on items for select using (true);
+create policy "public read settings" on settings for select using (true);
+create policy "admin write items" on items for all to authenticated using (true) with check (true);
+create policy "admin write settings" on settings for all to authenticated using (true) with check (true);
