@@ -61,6 +61,22 @@ dialog h2{margin-bottom:8px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none}
 .toast.on{opacity:1}
 .note{font-size:.8rem;color:var(--mute);margin-top:8px}
+.feedback{padding:10px 12px;border:1px solid var(--brand);border-radius:10px;overflow-wrap:anywhere}
+.feedback.error{border-color:#b44232;color:var(--ink);background:var(--bg)}
+.photo-list{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+.photo-preview{margin:0;width:140px}
+.photo-preview img{width:140px;height:105px;object-fit:cover;border-radius:10px;background:var(--bg)}
+.photo-preview figcaption{font-size:.8rem;margin:4px 0}
+.photo-preview .acts{flex-wrap:wrap}
+.gallery-dialog{max-width:850px;max-height:90vh;overflow:auto}
+.gallery-main{display:block;width:100%;height:min(58vh,550px);object-fit:contain;background:var(--bg);border-radius:10px}
+.gallery-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 0;flex-wrap:wrap}
+.gallery-thumbs{display:flex;gap:8px;overflow:auto;padding:4px}
+.gallery-thumbs button{padding:3px;border:2px solid transparent;border-radius:8px;background:var(--bg);cursor:pointer}
+.gallery-thumbs button[aria-current="true"]{border-color:var(--brand)}
+.gallery-thumbs img{display:block;width:68px;height:52px;object-fit:cover;border-radius:4px}
+.photo-button{margin-bottom:4px;align-self:flex-start}
+@media(max-width:480px){.gallery-dialog{padding:14px}.gallery-main{height:45vh}.photo-preview,.photo-preview img{width:120px}}
 </style>
 </head>
 <body>
@@ -94,10 +110,17 @@ dialog h2{margin-bottom:8px}
         <div><label>Condition</label><select id="iCond"><option>Like new</option><option>Good</option><option>Fair</option></select></div>
         <div><label>Quantity</label><input id="iQty" type="number" min="0" value="1"></div>
         <div><label>Price (R)</label><input id="iPrice" type="number" min="0" step="0.01"></div>
+        <div><label for="iStatus">Sale status</label><select id="iStatus"><option value="available">Available</option><option value="sold">Sold</option></select></div>
         <div class="full"><label>Description</label><textarea id="iDesc" rows="3" placeholder="Brand, size, age, what is included, any flaws..."></textarea></div>
-        <div class="full"><label>Photo (optional)</label><input id="iImg" type="file" accept="image/*"></div>
+        <div class="full">
+          <label for="iImg">Photos (optional)</label><input id="iImg" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="photoHelp">
+          <p class="note" id="photoHelp">Add up to 6 photos, together or in separate selections. JPG, PNG or WebP; up to 10 MB each. The first photo is the cover. Changes take effect when you save.</p>
+          <div class="photo-list" id="photoList"></div>
+        </div>
       </div>
+      <p class="note">Choosing Sold sets the available quantity to zero. To relist, choose Available and enter a quantity above zero.</p>
       <div class="acts"><button class="btn" id="saveItem">Save item</button><button class="btn alt" id="clearItem">Clear</button></div>
+      <p class="feedback" id="itemFeedback" role="status" aria-live="polite" hidden></p>
     </div>
     <div id="tContact" hidden>
       <div class="f">
@@ -108,10 +131,12 @@ dialog h2{margin-bottom:8px}
         <div class="full"><label>Note to buyers</label><input id="cNote" placeholder="e.g. Collection in Cape Town. Payment by EFT or cash."></div>
       </div>
       <div class="acts"><button class="btn" id="saveContact">Save contact details</button></div>
+      <p class="feedback" id="contactFeedback" role="status" aria-live="polite" hidden></p>
     </div>
     <p class="note" id="mode"></p>
   </section>
  
+  <p class="feedback error" id="loadFeedback" role="alert" hidden></p>
   <div class="grid" id="grid"></div>
 </main>
  
@@ -134,6 +159,18 @@ dialog h2{margin-bottom:8px}
   </div>
 </dialog>
  
+<dialog id="galleryDlg" class="gallery-dialog" aria-labelledby="galleryTitle">
+  <h2 id="galleryTitle"></h2>
+  <img id="galleryImage" class="gallery-main" alt="">
+  <div class="gallery-nav">
+    <button class="btn alt sm" id="galleryPrev" aria-label="Previous photo">Previous</button>
+    <span id="galleryCount" role="status" aria-live="polite"></span>
+    <button class="btn alt sm" id="galleryNext" aria-label="Next photo">Next</button>
+    <button class="btn sm" id="galleryClose">Close</button>
+  </div>
+  <div id="galleryThumbs" class="gallery-thumbs" aria-label="Choose a photo"></div>
+</dialog>
+
 <dialog id="loginDlg">
   <h2>Admin login</h2>
   <div class="g">
@@ -144,7 +181,7 @@ dialog h2{margin-bottom:8px}
   </div>
 </dialog>
  
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
  
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
@@ -159,21 +196,59 @@ const CATS = {"Gadgets & Devices":"📱","TVs":"📺","Radios & Audio":"📻","T
 /* ============================ */
  
 const $ = id => document.getElementById(id);
+const cloudConfigured = Boolean(CFG.SUPABASE_URL || CFG.SUPABASE_ANON_KEY);
 const sb = (CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && window.supabase) ? supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY) : null;
-let items = [], contact = {}, cat = "All", editId = null, imgData = null, isAdmin = false, orderItem = null;
+const PHOTO_BUCKET = "item-photos", MAX_PHOTOS = 6, MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+let items = [], contact = {}, cat = "All", editId = null, isAdmin = false, orderItem = null;
+let draftId = null, draftPhotos = [], itemBusy = false, contactBusy = false;
+let galleryItem = null, galleryIndex = 0;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = n => CFG.CURRENCY + Number(n).toLocaleString("en-ZA", {minimumFractionDigits:2, maximumFractionDigits:2});
-const toast = m => { const t=$("toast"); t.textContent=m; t.classList.add("on"); setTimeout(()=>t.classList.remove("on"),2500); };
+let toastTimer;
+function hideToast(){ clearTimeout(toastTimer); $("toast").classList.remove("on"); $("toast").hidden=true; $("toast").textContent=""; }
+const toast = m => { hideToast(); const t=$("toast"); t.textContent=m; t.hidden=false; t.classList.add("on"); toastTimer=setTimeout(hideToast,2500); };
+const errorText = error => error?.message || String(error);
+const isSold = item => item.status === "sold" || Number(item.qty) < 1;
+function itemPhotos(item){
+  const photos = Array.isArray(item.images) ? item.images.filter(src => typeof src === "string" && src) : [];
+  return photos.length ? photos : (item.image ? [item.image] : []);
+}
+function feedback(id, message = "", isError = false){
+  if(message) hideToast();
+  $(id).textContent = message;
+  $(id).hidden = !message;
+  $(id).classList.toggle("error", isError);
+}
+function requireStore(){
+  // A failed library download must never quietly switch a live shop to demo mode.
+  if(cloudConfigured && !sb) throw new Error("The online connection could not start. Check your internet connection and reload the page.");
+}
+function requireAdmin(){
+  requireStore();
+  if(!isAdmin) throw new Error("Please log in before saving changes.");
+}
+function setItemBusy(busy, label = "Saving..."){
+  itemBusy = busy;
+  document.querySelectorAll("#tItem input, #tItem select, #tItem textarea, #tItem button, #grid [data-e], #grid [data-d]").forEach(el => el.disabled = busy);
+  $("logout").disabled = busy || contactBusy;
+  $("saveItem").textContent = busy ? label : "Save item";
+}
  
 /* ---- data layer: Supabase if configured, otherwise localStorage ---- */
 const LS = (k,v) => v===undefined ? JSON.parse(localStorage.getItem(k)||"null") : localStorage.setItem(k, JSON.stringify(v));
 async function load(){
+  requireStore();
   if(sb){
-    const a = await sb.from("items").select("*").order("created_at",{ascending:false});
-    const b = await sb.from("settings").select("*").eq("id",1).maybeSingle();
-    if(a.error) toast("Could not load items: "+a.error.message);
+    const [a, b] = await Promise.all([
+      sb.from("items").select("*").order("created_at",{ascending:false}),
+      sb.from("settings").select("*").eq("id",1).maybeSingle()
+    ]);
+    if(a.error) throw new Error("Could not load items: " + a.error.message);
+    if(b.error) throw new Error("Could not load contact details: " + b.error.message);
     items = a.data || []; contact = b.data || {};
-    const s = await sb.auth.getSession(); if(s.data.session) setAdmin(true);
+    const s = await sb.auth.getSession();
+    if(s.error) throw s.error;
+    setAdmin(Boolean(s.data.session));
   } else {
     items = LS("sc_items") || [
       {id:"1",name:"Samsung 43\" Smart TV",category:"TVs",condition:"Good",description:"Full HD, remote and wall bracket included. Works perfectly.",qty:1,price:3200},
@@ -182,27 +257,119 @@ async function load(){
     ];
     contact = LS("sc_contact") || {};
   }
-  render(); fillContact();
+  render(); fillContact(); feedback("loadFeedback");
 }
 async function saveItemDB(it){
+  requireAdmin();
+  let saved = it;
   if(sb){
-    const row = {name:it.name,category:it.category,condition:it.condition,description:it.description,qty:it.qty,price:it.price,image:it.image||null};
-    const r = it.id ? await sb.from("items").update(row).eq("id",it.id) : await sb.from("items").insert(row);
-    if(r.error) return toast("Error: "+r.error.message);
-    return load();
+    const {id, ...row} = it;
+    // Keep the new item's UUID across retries, including a lost success response.
+    const query = editId ? sb.from("items").update(row).eq("id", id) : sb.from("items").upsert(it, {onConflict:"id"});
+    const result = await query.select("*").single();
+    if(result.error) throw result.error;
+    if(!result.data?.id) throw new Error("The database did not confirm the saved item.");
+    saved = result.data;
+  } else {
+    saved = {...it, created_at:items.find(item => item.id === it.id)?.created_at || new Date().toISOString()};
   }
-  if(it.id) items = items.map(x=>x.id===it.id?it:x); else { it.id = String(Date.now()); items.unshift(it); }
-  LS("sc_items", items); render();
+  const nextItems = items.some(item => item.id === saved.id)
+    ? items.map(item => item.id === saved.id ? saved : item) : [saved, ...items];
+  // Write first: a full browser storage quota must not appear as a successful save.
+  if(!sb) LS("sc_items", nextItems);
+  items = nextItems;
+  return saved;
 }
 async function deleteItemDB(id){
-  if(sb){ const r = await sb.from("items").delete().eq("id",id); if(r.error) return toast(r.error.message); return load(); }
-  items = items.filter(x=>x.id!==id); LS("sc_items", items); render();
+  requireAdmin();
+  if(sb){
+    const result = await sb.from("items").delete().eq("id",id).select("id").single();
+    if(result.error) throw result.error;
+    if(!result.data?.id) throw new Error("The database did not confirm the deletion.");
+  }
+  const nextItems = items.filter(item => item.id !== id);
+  if(!sb) LS("sc_items", nextItems);
+  items = nextItems;
+  // Existing uploaded photos are retained; deleting a listing does not erase files.
+  if(editId === id) clearForm();
+  render();
 }
 async function saveContactDB(c){
-  contact = c;
-  if(sb){ const r = await sb.from("settings").upsert({id:1,...c}); if(r.error) return toast(r.error.message); }
-  else LS("sc_contact", c);
-  fillContact(); toast("Contact details saved");
+  requireAdmin();
+  let saved = c;
+  if(sb){
+    const result = await sb.from("settings").upsert({id:1,...c}).select("*").single();
+    if(result.error) throw result.error;
+    if(!result.data) throw new Error("The database did not confirm the contact details.");
+    saved = result.data;
+  } else LS("sc_contact", c);
+  contact = saved;
+}
+
+/* ---- photo preparation and upload ---- */
+function preparePhoto(file){
+  return new Promise((resolve, reject) => {
+    const image = new Image(), objectUrl = URL.createObjectURL(file);
+    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Could not read " + file.name + ". Please choose a JPG, PNG or WebP photo.")); };
+    image.onload = () => {
+      try {
+        const scale = Math.min(1, 1200 / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const src = canvas.toDataURL("image/jpeg", 0.8);
+        canvas.toBlob(blob => blob ? resolve({src, blob, url:null}) : reject(new Error("Could not prepare " + file.name)), "image/jpeg", 0.8);
+      } catch(error){ reject(error); }
+      finally { URL.revokeObjectURL(objectUrl); }
+    };
+    image.src = objectUrl;
+  });
+}
+function renderPhotoList(){
+  $("photoList").innerHTML = draftPhotos.map((photo, index) => `
+    <figure class="photo-preview">
+      <img src="${esc(photo.src)}" alt="Selected photo ${index + 1}">
+      <figcaption>${index === 0 ? "Cover photo" : "Photo " + (index + 1)}</figcaption>
+      <div class="acts">
+        ${index ? `<button class="btn alt sm" data-cover="${index}" aria-label="Use photo ${index + 1} as cover">Make cover</button>` : ""}
+        <button class="btn alt sm" data-remove="${index}" aria-label="Remove photo ${index + 1}">Remove</button>
+      </div>
+    </figure>`).join("");
+}
+async function uploadPhotos(id){
+  if(!sb) return draftPhotos.map(photo => photo.src);
+  const result = await sb.from("items").select("id,images,status,sold_at").limit(0);
+  if(result.error) throw new Error("Cannot confirm the database photo/status setup: " + result.error.message);
+  const urls = [];
+  for(const photo of draftPhotos){
+    if(!photo.url){
+      const path = "items/" + id + "/" + crypto.randomUUID() + ".jpg";
+      const uploaded = await sb.storage.from(PHOTO_BUCKET).upload(path, photo.blob, {contentType:"image/jpeg", cacheControl:"3600", upsert:false});
+      if(uploaded.error) throw new Error("Photo upload failed: " + uploaded.error.message);
+      photo.url = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+    }
+    urls.push(photo.url);
+  }
+  // Retain successful uploads after a failed/uncertain save, and reuse them on retry.
+  // Do not delete files here: the database might have committed before a connection failed.
+  return urls;
+}
+function showGallery(item, index = 0){
+  const photos = itemPhotos(item);
+  if(!photos.length) return;
+  galleryItem = item;
+  galleryIndex = (index + photos.length) % photos.length;
+  $("galleryTitle").textContent = item.name;
+  $("galleryImage").src = photos[galleryIndex];
+  $("galleryImage").alt = item.name + " — photo " + (galleryIndex + 1);
+  $("galleryCount").textContent = (galleryIndex + 1) + " of " + photos.length;
+  $("galleryPrev").disabled = $("galleryNext").disabled = photos.length < 2;
+  $("galleryThumbs").innerHTML = photos.map((src, i) => `<button data-photo="${i}" aria-label="Show photo ${i + 1}" aria-current="${i === galleryIndex}"><img src="${esc(src)}" alt="" loading="lazy"></button>`).join("");
+  if(!$("galleryDlg").open) $("galleryDlg").showModal();
 }
  
 /* ---- rendering ---- */
@@ -212,19 +379,23 @@ function render(){
   const q = $("q").value.trim().toLowerCase(), s = $("sort").value;
   let list = items.filter(i=>(cat==="All"||i.category===cat) && (i.name+" "+(i.description||"")+" "+i.category).toLowerCase().includes(q));
   if(s==="lo") list.sort((a,b)=>a.price-b.price); else if(s==="hi") list.sort((a,b)=>b.price-a.price);
-  $("grid").innerHTML = list.length ? list.map(i=>`
+  $("grid").innerHTML = list.length ? list.map(i=>{
+    const photos = itemPhotos(i), sold = isSold(i);
+    return `
     <article class="card">
-      <div class="img">${i.image?`<img src="${esc(i.image)}" alt="${esc(i.name)}" loading="lazy">`:(CATS[i.category]||"📦")}
-        <span class="tag">${esc(i.condition||"")}</span>${i.qty<1?'<div class="sold">Sold out</div>':""}</div>
+      <div class="img">${photos.length?`<img src="${esc(photos[0])}" alt="${esc(i.name)}" loading="lazy">`:(CATS[i.category]||"📦")}
+        <span class="tag">${esc(i.condition||"")}</span>${sold?'<div class="sold">Sold</div>':""}</div>
       <div class="body">
+        ${photos.length?`<button class="btn alt sm photo-button" data-gallery="${esc(i.id)}">View ${photos.length === 1 ? "photo" : photos.length + " photos"}</button>`:""}
         <span class="cat">${esc(i.category)}</span>
         <h3>${esc(i.name)}</h3>
         <p class="desc">${esc(i.description)}</p>
-        <div class="row"><div><div class="price">${money(i.price)}</div><div class="qty">${i.qty} available</div></div>
-          <button class="btn" data-o="${esc(i.id)}" ${i.qty<1?"disabled":""}>Order</button></div>
-        ${isAdmin?`<div class="acts"><button class="btn alt sm" data-e="${esc(i.id)}">Edit</button><button class="btn alt sm" data-d="${esc(i.id)}">Delete</button></div>`:""}
+        <div class="row"><div><div class="price">${money(i.price)}</div><div class="qty">${sold ? "No stock available" : esc(i.qty) + " available"}</div></div>
+          <button class="btn" data-o="${esc(i.id)}" ${sold?"disabled":""}>Order</button></div>
+        ${isAdmin?`<div class="acts"><button class="btn alt sm" data-e="${esc(i.id)}" ${itemBusy?"disabled":""}>Edit</button><button class="btn alt sm" data-d="${esc(i.id)}" ${itemBusy?"disabled":""}>Delete</button></div>`:""}
       </div>
-    </article>`).join("") : `<div class="empty"><h3>Nothing found</h3><p>Try another search or category.</p></div>`;
+    </article>`;
+  }).join("") : `<div class="empty"><h3>Nothing found</h3><p>Try another search or category.</p></div>`;
 }
 function fillContact(){
   $("cName").value=contact.name||""; $("cPhone").value=contact.phone||""; $("cWa").value=contact.whatsapp||"";
@@ -239,11 +410,44 @@ function fillContact(){
 /* ---- events ---- */
 $("chips").onclick = e => { const c=e.target.dataset.c; if(c){cat=c;render();} };
 $("q").oninput = render; $("sort").onchange = render;
-$("grid").onclick = e => {
-  const t=e.target, find=id=>items.find(x=>x.id===id);
-  if(t.dataset.o){ orderItem=find(t.dataset.o); $("oTitle").textContent=orderItem.name; $("oInfo").textContent=money(orderItem.price)+" each · "+orderItem.qty+" available"; $("oQty").max=orderItem.qty; $("oQty").value=1; $("ordDlg").showModal(); }
-  if(t.dataset.e){ const i=find(t.dataset.e); editId=i.id; imgData=i.image||null; $("iName").value=i.name; $("iCat").value=i.category; $("iCond").value=i.condition; $("iQty").value=i.qty; $("iPrice").value=i.price; $("iDesc").value=i.description; showTab("item"); $("admin").scrollIntoView({behavior:"smooth"}); }
-  if(t.dataset.d && confirm("Delete this item?")) deleteItemDB(t.dataset.d);
+$("grid").onclick = async e => {
+  const t=e.target.closest("button");
+  if(!t) return;
+  const find=id=>items.find(x=>x.id===id);
+  if(t.dataset.gallery){ const item=find(t.dataset.gallery); if(item) showGallery(item); }
+  if(t.dataset.o){
+    orderItem=find(t.dataset.o);
+    if(!orderItem || isSold(orderItem)) return;
+    $("oTitle").textContent=orderItem.name; $("oInfo").textContent=money(orderItem.price)+" each · "+orderItem.qty+" available"; $("oQty").max=orderItem.qty; $("oQty").value=1; $("ordDlg").showModal();
+  }
+  if(itemBusy || !isAdmin) return;
+  if(t.dataset.e){
+    const i=find(t.dataset.e);
+    if(!i) return;
+    editId=i.id; draftId=null;
+    draftPhotos=itemPhotos(i).map(src => ({src, url:src}));
+    $("iName").value=i.name; $("iCat").value=i.category; $("iCond").value=i.condition; $("iQty").value=i.qty; $("iPrice").value=i.price; $("iDesc").value=i.description||"";
+    $("iStatus").value=isSold(i)?"sold":"available"; $("iImg").value="";
+    feedback("itemFeedback"); renderPhotoList(); showTab("item"); $("admin").scrollIntoView({behavior:"smooth"});
+  }
+  if(t.dataset.d && confirm("Delete this item?")){
+    setItemBusy(true, "Deleting...");
+    try { await deleteItemDB(t.dataset.d); feedback("itemFeedback", "Item deleted"); }
+    catch(error){ feedback("itemFeedback", "Deletion not confirmed: " + errorText(error), true); }
+    finally { setItemBusy(false); }
+  }
+};
+$("galleryClose").onclick = () => $("galleryDlg").close();
+$("galleryPrev").onclick = () => showGallery(galleryItem, galleryIndex - 1);
+$("galleryNext").onclick = () => showGallery(galleryItem, galleryIndex + 1);
+$("galleryThumbs").onclick = e => {
+  const button = e.target.closest("[data-photo]");
+  if(button) showGallery(galleryItem, Number(button.dataset.photo));
+};
+$("galleryDlg").onkeydown = e => {
+  if(e.key === "ArrowLeft" || e.key === "ArrowRight"){
+    e.preventDefault(); showGallery(galleryItem, galleryIndex + (e.key === "ArrowLeft" ? -1 : 1));
+  }
 };
 function orderText(){
   const n=Math.max(1,Math.min(+$("oQty").value||1,orderItem.qty));
@@ -266,31 +470,106 @@ function setAdmin(v){ isAdmin=v; $("admin").classList.toggle("on",v); $("adminBt
 $("adminBtn").onclick = () => isAdmin ? $("admin").scrollIntoView({behavior:"smooth"}) : $("loginDlg").showModal();
 $("lClose").onclick = () => $("loginDlg").close();
 $("lGo").onclick = async () => {
-  if(sb){ const r=await sb.auth.signInWithPassword({email:$("lEmail").value,password:$("lPass").value}); if(r.error) return toast(r.error.message); }
-  else if($("lPass").value!==CFG.LOCAL_PIN) return toast("Wrong PIN");
-  $("loginDlg").close(); $("lPass").value=""; setAdmin(true);
+  $("lGo").disabled = true;
+  try {
+    requireStore();
+    if(sb){ const r=await sb.auth.signInWithPassword({email:$("lEmail").value.trim(),password:$("lPass").value}); if(r.error) throw r.error; }
+    else if($("lPass").value!==CFG.LOCAL_PIN) throw new Error("Wrong PIN");
+    $("loginDlg").close(); $("lPass").value=""; setAdmin(true);
+  } catch(error){ toast(errorText(error)); }
+  finally { $("lGo").disabled = false; }
 };
-$("logout").onclick = async () => { if(sb) await sb.auth.signOut(); setAdmin(false); };
+$("logout").onclick = async () => {
+  if(itemBusy || contactBusy) return;
+  try {
+    if(sb){ const result=await sb.auth.signOut(); if(result.error) throw result.error; }
+    setAdmin(false);
+  } catch(error){ toast("Could not log out: " + errorText(error)); }
+};
 function showTab(t){ $("tItem").hidden=t!=="item"; $("tContact").hidden=t!=="contact"; }
 document.querySelectorAll(".tabs [data-t]").forEach(b=>b.onclick=()=>showTab(b.dataset.t));
-function clearForm(){ editId=null; imgData=null; ["iName","iDesc","iPrice","iImg"].forEach(i=>$(i).value=""); $("iQty").value=1; }
-$("clearItem").onclick = clearForm;
-$("iImg").onchange = e => {
-  const f=e.target.files[0]; if(!f) return;
-  const img=new Image(); img.onload=()=>{ const s=Math.min(1,700/Math.max(img.width,img.height)), c=document.createElement("canvas"); c.width=img.width*s; c.height=img.height*s; c.getContext("2d").drawImage(img,0,0,c.width,c.height); imgData=c.toDataURL("image/jpeg",.75); };
-  img.src=URL.createObjectURL(f);
+function clearForm(){
+  editId=null; draftId=null; draftPhotos=[];
+  ["iName","iDesc","iPrice","iImg"].forEach(i=>$(i).value="");
+  $("iQty").value=1; $("iStatus").value="available";
+  renderPhotoList(); feedback("itemFeedback");
+}
+$("clearItem").onclick = () => { if(!itemBusy) clearForm(); };
+$("photoList").onclick = e => {
+  if(itemBusy) return;
+  const button = e.target.closest("button");
+  if(!button) return;
+  if(button.dataset.remove !== undefined) draftPhotos.splice(Number(button.dataset.remove), 1);
+  if(button.dataset.cover !== undefined){
+    const [photo] = draftPhotos.splice(Number(button.dataset.cover), 1);
+    if(photo) draftPhotos.unshift(photo);
+  }
+  renderPhotoList();
+};
+$("iImg").onchange = async e => {
+  if(itemBusy) return;
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+  setItemBusy(true, "Preparing photos...");
+  feedback("itemFeedback", "Preparing photos...");
+  try {
+    if(draftPhotos.length + files.length > MAX_PHOTOS) throw new Error("Use no more than " + MAX_PHOTOS + " photos per item. Remove a photo before adding another.");
+    for(const file of files){
+      if(!["image/jpeg","image/png","image/webp"].includes(file.type)) throw new Error(file.name + ": choose a JPG, PNG or WebP photo.");
+      if(file.size > MAX_PHOTO_BYTES) throw new Error(file.name + " is larger than 10 MB.");
+    }
+    const prepared = [];
+    for(const file of files) prepared.push(await preparePhoto(file));
+    draftPhotos.push(...prepared);
+    renderPhotoList(); feedback("itemFeedback", "Photos ready. Select Save item to keep your changes.");
+  } catch(error){ feedback("itemFeedback", errorText(error) + " Your existing selections are unchanged.", true); }
+  finally { $("iImg").value=""; setItemBusy(false); }
 };
 $("saveItem").onclick = async () => {
-  const name=$("iName").value.trim(), price=parseFloat($("iPrice").value);
-  if(!name || isNaN(price)) return toast("Please enter a name and price");
-  await saveItemDB({id:editId,name,category:$("iCat").value,condition:$("iCond").value,description:$("iDesc").value.trim(),qty:Math.max(0,parseInt($("iQty").value)||0),price,image:imgData});
-  clearForm(); toast("Item saved");
+  if(itemBusy) return;
+  setItemBusy(true); feedback("itemFeedback", "Saving item and photos...");
+  let saved = false;
+  try {
+    requireAdmin();
+    const name=$("iName").value.trim(), price=Number($("iPrice").value), quantity=Number($("iQty").value);
+    if(!name || !$("iPrice").value.trim() || !Number.isFinite(price) || price < 0) throw new Error("Please enter an item name and a valid price of zero or more.");
+    if(!$("iQty").value.trim() || !Number.isSafeInteger(quantity) || quantity < 0) throw new Error("Please enter a whole-number quantity of zero or more.");
+    const category = $("iCat").value, selectedStatus = $("iStatus").value;
+    if(!Object.hasOwn(CATS, category)) throw new Error("Please choose a category.");
+    if(!["available", "sold"].includes(selectedStatus)) throw new Error("Please choose Available or Sold.");
+    if(draftPhotos.length > MAX_PHOTOS) throw new Error("Use no more than " + MAX_PHOTOS + " photos per item.");
+    const status = selectedStatus === "sold" || quantity === 0 ? "sold" : "available";
+    const original = items.find(item => item.id === editId);
+    const soldAt = status === "sold" ? ((original && isSold(original) && original.sold_at) || new Date().toISOString()) : null;
+    const id = editId || (draftId ||= crypto.randomUUID());
+    const images = await uploadPhotos(id);
+    await saveItemDB({id,name,category,condition:$("iCond").value,description:$("iDesc").value.trim(),qty:status === "sold" ? 0 : quantity,price,images,image:images[0]||null,status,sold_at:soldAt});
+    saved = true;
+  } catch(error){
+    feedback("itemFeedback", "Save not confirmed. Your entries and photos are still here. " + errorText(error) + " Correct the problem and retry without clearing the form.", true);
+  } finally { setItemBusy(false); }
+  if(saved){ clearForm(); render(); feedback("itemFeedback", "Item saved"); toast("Item saved"); }
 };
-$("saveContact").onclick = () => saveContactDB({name:$("cName").value.trim(),phone:$("cPhone").value.trim(),whatsapp:$("cWa").value.trim(),email:$("cEmail").value.trim(),note:$("cNote").value.trim()});
+$("saveContact").onclick = async () => {
+  if(contactBusy) return;
+  contactBusy=true; $("logout").disabled=true;
+  document.querySelectorAll("#tContact input, #tContact button").forEach(el=>el.disabled=true);
+  feedback("contactFeedback", "Saving contact details...");
+  let saved = false;
+  try {
+    await saveContactDB({name:$("cName").value.trim(),phone:$("cPhone").value.trim(),whatsapp:$("cWa").value.trim(),email:$("cEmail").value.trim(),note:$("cNote").value.trim()});
+    saved = true;
+  } catch(error){ feedback("contactFeedback", "Save not confirmed. Your entries are still here. " + errorText(error), true); }
+  finally {
+    contactBusy=false; $("logout").disabled=itemBusy;
+    document.querySelectorAll("#tContact input, #tContact button").forEach(el=>el.disabled=false);
+  }
+  if(saved){ fillContact(); feedback("contactFeedback", "Contact details saved"); toast("Contact details saved"); }
+};
  
 $("yr").textContent = new Date().getFullYear();
 $("mode").textContent = "";
-load();
+load().catch(error => feedback("loadFeedback", errorText(error), true));
 </script>
 </body>
 </html>
